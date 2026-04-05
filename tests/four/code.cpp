@@ -18,7 +18,7 @@ int N = good_complexity ? 50000 : 1000;
 
 
 class T{
-private:
+public:
     int x;
 public:
     T(int x):x(x){}
@@ -26,7 +26,14 @@ public:
     void change(int y){
         x = y;
     }
+    friend std::ostream& operator<<(std::ostream& os, const T& obj);
 };
+
+std::ostream& operator<<(std::ostream& os, const T& obj) {
+    os <<  obj.x ;
+    return os;  // 返回流对象以支持链式调用
+}
+
 bool operator == (const T &a, const T &b){
     return a.num() == b.num();
 }
@@ -39,11 +46,23 @@ sjtu::deque<T>::iterator it_q;
 std::deque<T>::iterator it_stl;
 sjtu::deque<T>::const_iterator _it_q;
 std::deque<T>::const_iterator _it_stl;
+
+
+
 bool equal(){
+    //std::cout << (q.end() == q.end()) << std::endl;
+    // auto it = q.begin();
+    // for(int i=0; i<q.size(); ++i) ++it;
+    // std::cout << (it == q.end()) << std::endl;
+
     if(q.size() != stl.size()) return 0;
+    //else  std::cerr<<"sz tst passed"<<std::endl;
     if(q.empty() != stl.empty()) return 0;
+    //else  std::cerr<<"em passed"<<std::endl;
     int cnt = 0;
+    //std::cerr<<q[q.size()-2]<<std::endl;
     for(it_q = q.begin(), it_stl = stl.begin(); it_q != q.end() || it_stl != stl.end(); it_q++, it_stl++){
+
         if(*it_q != *it_stl) {
             printf("cnt = %d\n",cnt);
             return 0;
@@ -55,12 +74,14 @@ bool equal(){
 void test1(){
     printf("test1: push & pop                    ");
     for(int i=1;i<=N;i++){
-        if(i % 10 <= 3) q.push_back(T(i)), stl.push_back(T(i));else
-        if(i % 10 <= 7) q.push_front(T(i)), stl.push_front(T(i));else
-        if(i % 10 <= 8) q.pop_back(), stl.pop_back();else
-        if(i % 10 <= 9) q.pop_front(), stl.pop_front();
+        if(i % 10 <= 3) q.push_back(T(i)), stl.push_back(T(i));
+        else if(i % 10 <= 7) q.push_front(T(i)), stl.push_front(T(i));
+        else if(i % 10 <= 8) q.pop_back(), stl.pop_back();
+        else if(i % 10 <= 9) q.pop_front(), stl.pop_front();
     }
+    //std::cerr<<1<<std::endl;
     if(!equal()){puts("Wrong Answer");return;}
+    //std::cerr<<1<<std::endl;
     while (!q.empty()){
         q.pop_back();
         stl.pop_back();

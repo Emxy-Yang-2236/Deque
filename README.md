@@ -1,49 +1,144 @@
-# Deque README
+# Deque 设计文档
 
+## 1、数据结构实现： 
+Deque 核心采用双向链表套循环数组的结构  
+其中循环数组部分头部和尾部的插入为$O(1)$ ， resize部分和线性表相同，均摊分析为 $O(1)$ , 随机插入时就近找头/尾进行移位，复杂度为最差（不引发扩容的情况下） $O(d/2)$ ,其中d为循环数组的长度，约等于$ \sqrt(n)$
 
-## 项目概述
+## 2、Deque部分分裂和合并的思路：
 
-在小作业中，大家已经使用过STL的 `std::deque` 的头尾插入删除功能，实际上，`std::deque` 也支持类似普通数组那样的随机下标访问。
+### 1）、插入时
+维护一个理想的块大小B = $\sqrt totalsize + 1$ （若B小于最小值8则取8） 
+在进行所有的插入或者删除操作的时候，若当前块的大小大于B*2则分裂，若小于B/2则合并，注意若合并的时候如果合并后的块太大则不执行合并，而是两个中的数据匀一下各一半。
 
+核心函数：
+>1、块太大时分裂
+```c++
+typename double_list<CircularArr>::iterator split(typename double_list<CircularArr>::iterator block_it) {
+            CircularArr &block = *block_it;
+            int B = get_ideal_cap();
 
-<img src="https://www.oreilly.com/api/v2/epubs/9781787120952/files/assets/fd7f0c6e-e5cb-400d-ad2f-c38e91772682.png" width="500">
+            if (block.size() <= 2 * B) return block_it;
 
-在这次大作业中，你需要使用分块链表（Unrolled Linked List）数据结构实现高效的双端队列（Deque），支持快速随机访问与动态容量调整。所需要实现的接口在给定的文件中。
+            int keep_size = block.size() / 2;
+            int move_size = block.size() - keep_size;
 
-## 核心要求
+            CircularArr new_block(move_size + 4);
+            //将原block的后一半移进新的block
+            for (int i = keep_size; i < block.size(); ++i) {
+                new_block.push_back(block[i]);
+            }
+            for (int i = 0; i < move_size; ++i) {
+                block.pop_back();
+            }
 
-分块链表就是对存储元素进行分块，以加速随机访问等操作。理想情况下，每一块的大小在 $O(\sqrt n)$ 量级。一种保证方法是在块过大时分成两块，相邻两块均很小时合成一块。在具体实现中，每一
-块内部的储存方式和所有块的储存方式均可使用链表或数组。 你需要保证头尾插入和删除的均摊
-复杂度是 $O(1)$，随机插入、删除和查询的复杂度是最坏 $O(\sqrt n)$。
+            auto new_block_it = list.insert_after(block_it, std::move(new_block));
 
-这次的大作业不允许使用STL容器，但你可以使用你上次写的双向链表，直接粘贴进 `src.hpp` 即可。这次任务的几乎所有测试都在下发的文件中，其中带有 memcheck 的测试仅是其原始测试数据更少
-的版本，可用作检查内存泄漏和内存错误。
+            ++version;
 
-我们在此提供两种可以考虑的实现方式：一种是链表套链表，另一种的链表套循环数组，一般来说后一种实现的效率会更高一些。如果你力所能及的话，也可以用手指树(finger tree)实现这一功能。
-
-## 项目结构
-
+            return new_block_it;
+        }
 ```
-.
-├── tests/
-│   ├── one/             # 功能测试用例
-│   ├── two/      
-│   ├── three/      
-│   ├── four/      
-│   ├── two.memcheck/    # 内存检查专用测试
-│   └── four.memcheck/    
-├── (various utility hpp files...)
-├── README.md            # 你给deque写的文档
-└── deque.hpp            # 你的deque实现
+>2、块太小时合并或匀一匀
+```c++
+typename double_list<CircularArr>::iterator maintain(typename double_list<CircularArr>::iterator block_it) {
+            CircularArr &cur_block = *block_it;
+            int B = get_ideal_cap();
+
+            if (cur_block.size() >= B / 2 || list.size() <= 1) return block_it;
+
+            auto node = block_it.ptr;
+            auto right_node = node->next, left_node = node->prev;
+
+            //先借右边
+            if (right_node != list.tail) {
+                CircularArr &right = right_node->data;
+                int total = cur_block.size() + right.size();
+
+                if (total <= 2 * B) {
+                    for (int i = 0; i < right.size(); ++i) {
+                        cur_block.push_back(right[i]);
+                    }
+
+                    typename double_list<CircularArr>::iterator right_it(right_node, &list);
+                    list.erase(right_it);
+                    ++version;
+                    return block_it;
+                } else {
+                    int tar_size = total / 2;
+                    int need_size = tar_size - cur_block.size();
+
+                    for (int i = 0; i < need_size; ++i) {
+                        cur_block.push_back(right[0]);
+                        right.pop_front();
+                    }
+                    ++version;
+                    return block_it;
+                }
+            } else {
+                if (left_node != list.head) {
+                    CircularArr &left = left_node->data;
+                    int total = cur_block.size() + left.size();
+
+                    if (total <= 2 * B) {
+                        for (int i = left.size() - 1; i >= 0; --i) {
+                            cur_block.push_front(left[i]);
+                        }
+
+                        typename double_list<CircularArr>::iterator left_it(left_node, &list);
+                        list.erase(left_it);
+                        ++version;
+                        return block_it;
+                    } else {
+                        int tar_size = total / 2;
+                        int need_size = tar_size - cur_block.size();
+
+                        for (int i = 0; i < need_size; ++i) {
+                            cur_block.push_front(left[left.size() - 1]);
+                            left.pop_back();
+                        }
+                        ++version;
+                        return block_it;
+                    }
+                }
+            }
+            //++version;
+        }
 ```
 
-## 对于 `README.md` 的要求
+### 2）、维护整个表防止复杂度退化
+注意到若一个块太久没有被访问，其当时的理想大小可能已经远远偏离现在的理想大小，故需要进行维护  
 
-你需要在 `README.md` 中给出自己分裂和合并的策略，并说明为什么时间复杂度符合要求。
+实现方法为每次维护记录一个`base_line`,经历若干次插入和删除的操作后如果当前的理想大小`B`大于`4 * baseline`或者小于`baseline \ 4`则扫描所有的块并检查是否需要执行`split`或`maintain`
+ 
+核心代码：
+```c++
+void check_and_rebuild() {
+            int B = get_ideal_cap();
+            if (B < base_line / 4 || B > base_line * 4) {
+                for (auto it = list.begin(); it != list.end(); ++it) {
+                    auto &block = *it;
+                    if (block.size() == 0) {
+                        if (list.size() > 1) {
+                            it = list.erase(it);
+                            --it;
+                            continue;
+                        }
+                    }
+                    if (block.size() > 2 * B) {
+                        it = split(it);
+                    } else if (block.size() < B / 2 && block.size() > 8) {
+                        it = maintain(it);
+                    }
+                    //++it;
+                }
+                base_line = B;
+            }
+        }
+```
+ 
+### 3）、总体复杂度分析： 
+在块大小理想的前提下，由循环数组的设计，随机插入的复杂度为$O(\sqrt n) + O(\sqrt n / 2)$，前者为找到对应循环数组的位置，后者为插入循环数组，总体为$O(\sqrt n)$  
 
-另附：最好认真写，因为我们 CR 的时候一定会对边界条件进行拷打
-
-## 时间安排
-
-这次大作业的发布时间为2025年3月10日，截止时间是2025年4月7日
-
+split操作最差为进行 $\sqrt n$ 次随机插入操作后进行一次分裂，分裂操作复杂度最差为$O(n)$, 总体不会使复杂度退化 
+ 
+maintain操作最差为进行 $\sqrt n$ 次随机删除操作后进行一次合并， 合并操作的复杂度不会大于$O(n)$, 总体不会使复杂度退化

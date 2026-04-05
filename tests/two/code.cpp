@@ -264,11 +264,14 @@ bool copyAndClearTest() {
         // empty copy and clear
         deq.clear(); deq2.clear();  deq3.clear();
         deq = deq = deq; deq2 = deq3; deq3 = deq = deq3 = deq2;
+        //std::cerr<<1<<std::endl;
 
         for (int i = 0; i < MAX_N; i++) {
             ans.push_back(DynamicType(&ansCounter));
             deq.push_back(DynamicType(&myCounter));
         }
+        //std::cerr<<1<<std::endl;
+
         if (myCounter != ansCounter) return false;
 
         deq = deq = deq = deq;

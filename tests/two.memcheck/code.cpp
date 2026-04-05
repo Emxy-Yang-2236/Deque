@@ -447,13 +447,13 @@ int main() {
     bool (*testFunc[])()= {
         pushTest, popTest, insertTest, iteratorTest,
         eraseTest, copyAndClearTest, memoryTest,
-        nomercyTest,
+        nomercyTest,exceptionTest,
     };
 
     const char *testMessage[] = {
         "Testing push...", "Testing pop...", "Testing insert...", "Testing iterator...",
         "Testing erase...", "Testing copy and clear...", "Testing memory...",
-        "Final test without mercy...",
+        "Final test without mercy...","Ex test",
     };
 
     bool error = false;
